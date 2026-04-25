@@ -2,42 +2,57 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const { char1Id, char2Id } = await request.json();
+  try {
+    const body = await request.json();
+    const { char1Id, char2Id } = body;
 
-  const char1 = await prisma.character.findUnique({ where: { id: char1Id } });
-  const char2 = await prisma.character.findUnique({ where: { id: char2Id } });
-
-  if (!char1 || !char2) return NextResponse.json({ error: "Faltan guerreros" }, { status: 400 });
-
-  // logica combate
-  let p1 = { ...char1 };
-  let p2 = { ...char2 };
-  let turns = 0;
-
-  // logica, el mas rapido atacara primero
-  const sequence = p1.speed >= p2.speed ? [p1, p2] : [p2, p1];
-
-  while (p1.health > 0 && p2.health > 0) {
-    turns++;
-    const attacker = sequence[(turns - 1) % 2];
-    const defender = sequence[turns % 2];
-
-    const damage = Math.max(1, attacker.attack - (defender.defense * 0.5));
-    defender.health -= damage;
-
-    if (defender.health <= 0) break;
-  }
-
-  const winnerId = p1.health > 0 ? p1.id : p2.id;
-
-  const battle = await prisma.battle.create({
-    data: {
-      character1Id: char1Id,
-      character2Id: char2Id,
-      winnerId: winnerId,
-      turns: turns
+    if (!char1Id || !char2Id) {
+      return NextResponse.json({ error: "IDs no proporcionados" }, { status: 400 });
     }
-  });
 
-  return NextResponse.json({ battle, winnerName: winnerId === char1.id ? char1.name : char2.name });
+    const char1 = await prisma.character.findUnique({ where: { id: Number(char1Id) } });
+    const char2 = await prisma.character.findUnique({ where: { id: Number(char2Id) } });
+
+    if (!char1 || !char2) {
+      return NextResponse.json({ error: "No se encontraron los personajes" }, { status: 404 });
+    }
+
+    // Simulacion
+    let p1Health = char1.health;
+    let p2Health = char2.health;
+    let turns = 0;
+
+    // Mientras ambos tengan vida y no excedan 100 turnos, tambien se evitan bucles infinitos
+    while (p1Health > 0 && p2Health > 0 && turns < 100) {
+      turns++;
+      // Ataque de P1 a P2
+      const dmg1 = Math.max(1, char1.attack - (char2.defense * 0.5));
+      p2Health -= dmg1;
+      
+      if (p2Health <= 0) break;
+
+      // Ataque de P2 a P1
+      const dmg2 = Math.max(1, char2.attack - (char1.defense * 0.5));
+      p1Health -= dmg2;
+    }
+
+    const winnerId = p1Health > 0 ? char1.id : char2.id;
+    const winnerName = p1Health > 0 ? char1.name : char2.name;
+
+    // para guardar resultado en bd
+    await prisma.battle.create({
+      data: {
+        character1Id: char1.id,
+        character2Id: char2.id,
+        winnerId: winnerId,
+        turns: turns
+      }
+    });
+
+    return NextResponse.json({ winnerName });
+
+  } catch (error) {
+    console.error("DETALLE DEL ERROR EN SERVIDOR:", error);
+    return NextResponse.json({ error: "Error interno en la simulación" }, { status: 500 });
+  }
 }
