@@ -56,7 +56,6 @@ export default function BattleForm({ characters }: { characters: any[] }) {
             </h2>
           </div>
 
-            // nuevos botones para mejor navegacion
           <div className="flex flex-col md:flex-row gap-4 justify-center">
             <button 
               onClick={() => setWinner(null)} 
