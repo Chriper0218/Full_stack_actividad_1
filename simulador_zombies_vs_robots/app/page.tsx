@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma"; 
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   // SSR: Traemos los personajes directo de la base de datos
   const characters = await prisma.character.findMany();
